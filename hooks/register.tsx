@@ -21,7 +21,10 @@ async function refresh($: Engine) {
   await update($, busy, () => true)
   let snap: Snapshot
   try {
-    const lists = parseLists(textOf(await $.mcp.call(SERVER, 'get-task-lists')))
+    const res = await $.mcp.call(SERVER, 'get-task-lists')
+    // An error here (e.g. expired sign-in) must not look like an account with no tasks.
+    if (res.isError) throw new Error(textOf(res))
+    const lists = parseLists(textOf(res))
     const filled: TodoList[] = await Promise.all(
       lists.map(async l => {
         const r = await $.mcp.call(SERVER, 'get-tasks', { listId: l.id, filter: "status ne 'completed'", top: 100 })
