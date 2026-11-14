@@ -1,0 +1,7 @@
+{
+  "name": "todo-pane",
+  "version": "0.1.0",
+  "description": "Your Microsoft To Do tasks in a pane beside the Claude chat. No extra app, no extra tab.",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

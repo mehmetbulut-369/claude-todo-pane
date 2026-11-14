@@ -1,0 +1,123 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>todo-pane demo</title>
+<style>
+/* 10 s demo. Every animation runs on one timeline; record.mjs pauses it and seeks frame by frame. */
+:root{--bg:#141413;--win:#1f1e1d;--panel:#262624;--line:#3a3936;--text:#ecebe6;--dim:#9a988f;--red:#e5534b;--amber:#d9a54a;--accent:#c96442}
+*{box-sizing:border-box;margin:0}
+body{width:1280px;height:800px;overflow:hidden;background:radial-gradient(1200px 700px at 50% 0%,#2a2926,var(--bg));font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;color:var(--text)}
+.scene{position:absolute;inset:0;opacity:0}
+.win{position:absolute;left:90px;top:70px;width:1100px;height:560px;background:var(--win);border:1px solid var(--line);border-radius:14px;box-shadow:0 30px 80px #0008;overflow:hidden}
+.dots{position:absolute;left:16px;top:15px;display:flex;gap:8px}.dots i{width:12px;height:12px;border-radius:50%;background:#4a4945;display:block}
+.cap{position:absolute;left:0;right:0;bottom:62px;text-align:center;font-size:34px;font-weight:600;letter-spacing:-.01em;opacity:0}
+.cap small{display:block;font-size:20px;font-weight:400;color:var(--dim);margin-top:6px}
+
+/* Scene A: tabs pile up */
+#A{animation:show 3.4s linear 0s both}
+.tabs{position:absolute;left:96px;top:10px;right:16px;display:flex;gap:4px}
+.tab{flex:1;min-width:0;height:34px;background:#2d2c2a;border-radius:8px 8px 0 0;padding:8px 10px;font-size:13px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transform:translateY(6px)}
+.tab.on{background:#353431;color:var(--text)}
+.ram{position:absolute;right:28px;bottom:26px;width:230px;font-size:13px;color:var(--dim)}
+.bar{height:8px;border-radius:4px;background:#2d2c2a;margin-top:6px;overflow:hidden}.bar b{display:block;height:100%;width:30%;background:var(--amber);animation:ram 2.4s ease-in .3s both}
+.ghost{position:absolute;left:40px;right:40px;top:80px;display:grid;gap:14px}
+.ghost i{display:block;height:14px;border-radius:7px;background:#2c2b29}
+
+/* Scene B: Claude window with the pane */
+#B{animation:show 6.2s linear 3.4s both}
+.chat{position:absolute;left:40px;top:64px;width:600px;display:grid;gap:18px}
+.msg{padding:14px 18px;border-radius:12px;background:#2a2927;color:var(--dim);font-size:15px}
+.msg.me{justify-self:end;background:#33312e;color:var(--text);max-width:420px}
+.prompt{position:absolute;left:40px;bottom:28px;width:600px;height:56px;border:1px solid var(--line);border-radius:14px;padding:17px 18px;color:var(--dim)}
+.pane{position:absolute;top:0;right:0;bottom:0;width:410px;background:var(--panel);border-left:1px solid var(--line);padding:22px 24px;animation:slide .7s cubic-bezier(.2,.8,.2,1) 4.0s both}
+.ph{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:16px}
+.meta{font-size:12px;color:var(--dim);margin:4px 0 14px;position:relative;height:16px}
+.meta span{position:absolute;left:0}
+.h{display:flex;justify-content:space-between;font-weight:600;font-size:13px;color:var(--text);margin:14px 0 4px}.h em{font-style:normal;color:var(--dim);font-weight:400;position:relative;width:14px;text-align:right}
+.h em span{position:absolute;right:0}
+.row{display:flex;gap:12px;align-items:flex-start;padding:8px 6px;border-radius:8px;overflow:hidden;max-height:70px}
+.ring{flex:none;width:18px;height:18px;border-radius:50%;border:1.6px solid #77756e;margin-top:2px;position:relative}
+.ring::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent);transform:scale(0)}
+.t{flex:1}.t div{font-size:14px}.t small{font-size:12px;color:var(--dim)}
+.late small{color:var(--red)}.today small{color:var(--amber)}
+.star{color:var(--amber);font-size:14px}
+.list{font-size:14px;color:var(--text);padding:6px 6px;display:flex;justify-content:space-between}.list span{color:var(--dim)}
+#r1{animation:done .5s ease 6.95s both}
+#r1 .ring::after{animation:pop .25s ease 6.7s both}
+#r1 .t div{animation:strike .2s linear 6.75s both}
+.c5{animation:out .2s linear 7.2s both}.c4{animation:in .2s linear 7.2s both}
+.cursor{position:absolute;left:0;top:0;width:22px;height:22px;animation:move 1.4s cubic-bezier(.4,0,.2,1) 5.1s both;z-index:9}
+.cursor path{transform-box:fill-box;transform-origin:center;animation:click .25s ease 6.6s both}
+
+/* End card */
+#C{animation:show 1.6s linear 8.6s both;background:#141413ee;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#C h1{font-size:56px;letter-spacing:-.02em}
+#C p{font-size:21px;color:var(--dim)}
+#C code{font:16px ui-monospace,Menlo,monospace;background:#262624;border:1px solid var(--line);padding:12px 18px;border-radius:10px;color:var(--text);margin-top:10px}
+
+#c1{animation:cap 1.5s ease .3s both}#c2{animation:cap 1.4s ease 1.9s both}
+#c3{animation:cap 1.6s ease 3.6s both}#c4{animation:cap 2.6s ease 5.4s both}
+
+@keyframes show{0%{opacity:0}4%{opacity:1}96%{opacity:1}100%{opacity:0}}
+@keyframes cap{0%{opacity:0;transform:translateY(8px)}15%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+@keyframes tab{to{opacity:1;transform:none}}
+@keyframes ram{to{width:92%;background:var(--red)}}
+@keyframes slide{from{transform:translateX(100%)}to{transform:none}}
+@keyframes move{from{transform:translate(560px,520px)}to{transform:translate(729px,116px)}}
+@keyframes click{0%{scale:1}50%{scale:.8}100%{scale:1}}
+@keyframes pop{to{transform:scale(1)}}
+@keyframes strike{to{text-decoration:line-through;color:var(--dim)}}
+@keyframes done{to{opacity:0;max-height:0;padding-top:0;padding-bottom:0}}
+@keyframes out{to{opacity:0}}@keyframes in{from{opacity:0}to{opacity:1}}
+</style></head><body>
+
+<div class="scene" id="A">
+  <div class="win">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="ghost"><i style="width:60%"></i><i></i><i style="width:85%"></i><i style="width:70%"></i><i></i><i style="width:40%"></i></div>
+    <div class="ram">Memory pressure<div class="bar"><b></b></div></div>
+  </div>
+  <div class="cap" id="c1">A 13-inch screen. Tabs everywhere.</div>
+  <div class="cap" id="c2">Every switch costs a bit of focus.<small>and every app in the background costs RAM</small></div>
+</div>
+
+<div class="scene" id="B">
+  <div class="win">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="chat">
+      <div class="msg me">Help me plan the week.</div>
+      <div class="msg">Sure. Let's start with what is already overdue, then block time for the rest…</div>
+    </div>
+    <div class="prompt">Reply…</div>
+    <div class="pane">
+      <div class="ph">To Do <span style="color:var(--dim);font-weight:400">↻</span></div>
+      <div class="meta"><span class="c5">5 open · 09:41</span><span class="c4" style="opacity:0">4 open · 09:41</span></div>
+      <div class="h">Overdue / today <em><span class="c5">2</span><span class="c4" style="opacity:0">1</span></em></div>
+      <div class="row late" id="r1"><span class="ring"></span><div class="t"><div>Send invoice to client</div><small>11 Nov · Work</small></div></div>
+      <div class="row today"><span class="ring"></span><div class="t"><div>Book dentist appointment</div><small>Today · Personal</small></div><span class="star">★</span></div>
+      <div class="h">Important <em>1</em></div>
+      <div class="row"><span class="ring"></span><div class="t"><div>Prepare slides for Friday</div><small>Work</small></div><span class="star">★</span></div>
+      <div class="h">Lists <em>3</em></div>
+      <div class="list">▸ Work <span>2</span></div>
+      <div class="list">▸ Personal <span>1</span></div>
+      <div class="list">▸ Reading <span>1</span></div>
+    </div>
+    <svg class="cursor" viewBox="0 0 24 24"><path d="M3 2l7.5 19 2.6-7.4L20.5 11z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
+  </div>
+  <div class="cap" id="c3">So I moved To Do into Claude.</div>
+  <div class="cap" id="c4">Tasks beside the chat. One click to complete.<small>no extra app, no extra tab</small></div>
+</div>
+
+<div class="scene" id="C">
+  <h1>todo-pane</h1>
+  <p>Microsoft To Do, inside Claude Code.</p>
+  <code>/plugin install todo-pane --marketplace mehmetbulut-369/claude-todo-pane</code>
+</div>
+
+<script>
+const names=['Claude','Microsoft To Do','Mail','Calendar','Docs','Slack','Notes','Drive','Stack Overflow','News'];
+const tabs=document.getElementById('tabs');
+names.forEach((n,i)=>{const d=document.createElement('div');d.className='tab'+(i===1?' on':'');d.textContent=n;d.style.animation=`tab .25s ease ${0.15+i*0.17}s both`;tabs.appendChild(d)});
+// Seek: record.mjs calls seek(seconds) for each frame. Opened in a browser, it just plays.
+window.seek=t=>document.getAnimations().forEach(a=>{a.pause();a.currentTime=t*1000});
+</script>
+</body></html>
