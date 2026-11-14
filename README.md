@@ -1,14 +1,14 @@
 # todo-pane
 
-Your Microsoft To Do tasks in a pane beside the Claude chat. You don't need another app or another tab.
+Your Microsoft To Do tasks in a pane beside the Claude chat. You don't need another app or another window.
 
 ![todo-pane demo](assets/demo.gif)
 
 ## Why I built this
 
-I work on a 13-inch laptop. My day was spread across a browser full of tabs and a To Do app running in the background. Every switch pulled me out of what I was doing for a moment, and the extra app took RAM it didn't need.
+I work on a 13-inch laptop. Claude was one window and Microsoft To Do was another. Every time I opened Mission Control, I saw a pile of windows, and I kept jumping between the two. Each jump pulled me out of what I was doing for a moment, like a fox chasing too many rabbits at once. The extra app also took RAM it didn't need.
 
-Most of my work already happens in Claude, so I brought the list there. Now my tasks sit next to the conversation. I can see what's overdue without leaving the chat, and one click ticks a task off. That's one app and one tab fewer, so my laptop and my head both have more room.
+Most of my work already happens in Claude, so I brought the list there. Now my tasks sit in a pane next to the conversation. I can see what's overdue without leaving the chat, and one click ticks a task off. That's one window fewer. My laptop has more room, and so does my head.
 
 It's a small thing, and it changed my day more than I expected. If you work the same way, here it is.
 
@@ -68,7 +68,7 @@ claude plugin test .
 
 To work on it locally, run `claude --plugin-dir .`. The plugin hot-reloads while you edit.
 
-The demo above is plain HTML with CSS animations ([`assets/demo.html`](assets/demo.html)), recorded frame by frame with headless Chrome ([`assets/record.mjs`](assets/record.mjs), no npm packages needed) and encoded with ffmpeg:
+The demo's one-line drawing style is a nod to Osvaldo Cavandoli's *La Linea*. The fox and the rabbits are original characters. The demo is plain HTML with SVG and CSS animations ([`assets/demo.html`](assets/demo.html)), recorded frame by frame with headless Chrome ([`assets/record.mjs`](assets/record.mjs), no npm packages needed) and encoded with ffmpeg:
 
 ```bash
 node assets/record.mjs /tmp/frames 30 10
