@@ -1,11 +1,13 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>todo-pane demo</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=block" rel="stylesheet">
 <style>
 /* 10 s demo in a one-line style: a white line on a flat color, the fox grows out of the ground line.
    Every animation runs on one timeline; record.mjs pauses it and seeks frame by frame. */
 :root{--bg:#2f5fd0;--ink:#fff}
 *{margin:0;box-sizing:border-box}
-body{width:1280px;height:800px;overflow:hidden;background:var(--bg);font:600 34px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif;color:var(--ink);animation:bg 10s linear both}
+body{width:1280px;height:800px;overflow:hidden;background:var(--bg);font:600 34px/1.3 "Inter",sans-serif;color:var(--ink);animation:bg 10s linear both}
 svg{position:absolute;inset:0}
 .l{fill:none;stroke:var(--ink);stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
 .thin{stroke-width:3.5}
@@ -43,7 +45,7 @@ g,rect,path{transform-box:fill-box;transform-origin:center}
 #paneLines{opacity:0;animation:fadein .3s linear 6.3s forwards}
 #tick{stroke-dasharray:30;stroke-dashoffset:30;animation:draw .3s ease 7.8s forwards}
 #struck{stroke-dasharray:110;stroke-dashoffset:110;animation:draw .25s ease 8.0s forwards}
-.lbl{font:600 18px -apple-system,BlinkMacSystemFont,sans-serif;fill:var(--ink)}
+.lbl{font:600 18px "Inter",sans-serif;fill:var(--ink)}
 #lblTodo{animation:fadeout .2s linear 5.4s forwards}
 
 /* ---------- end card ---------- */

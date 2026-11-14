@@ -1,11 +1,11 @@
 // Renders demo.html to PNG frames with headless Chrome (no npm packages: Node's built-in fetch + WebSocket).
-// Usage: node assets/record.mjs <outDir> [fps=30] [seconds=10]
+// Usage: node assets/record.mjs <outDir> [fps=30] [seconds=10] [page=demo.html]
 // Then: ffmpeg -framerate 30 -i <outDir>/%04d.png ... (see README "Rebuilding the demo")
 import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const [out, fps = '30', secs = '10'] = process.argv.slice(2)
+const [out, fps = '30', secs = '10', page = 'demo.html'] = process.argv.slice(2)
 if (!out) throw new Error('usage: node record.mjs <outDir> [fps] [seconds]')
 mkdirSync(out, { recursive: true })
 const chrome = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -35,8 +35,9 @@ const send = (method, params = {}) => new Promise((res, rej) => {
 
 await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 2, mobile: false })
 await send('Page.enable')
-await send('Page.navigate', { url: new URL('./demo.html', import.meta.url).href })
+await send('Page.navigate', { url: new URL(`./${page}`, import.meta.url).href })
 await new Promise(r => setTimeout(r, 1500))
+await send('Runtime.evaluate', { expression: 'document.fonts.ready', awaitPromise: true })
 
 const total = Math.round(Number(fps) * Number(secs))
 for (let f = 0; f < total; f++) {
