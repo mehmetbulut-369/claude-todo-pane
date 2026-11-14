@@ -102,7 +102,7 @@ export const register: Register = on => {
           <Text size="caption" dimColor>{isBusy ? 'Refreshing…' : `${all.length} open · ${time}`}</Text>
           <Button key="refresh" label="↻" plain dimColor onPress={() => refresh($)} />
         </Box>
-        {snap.error && <Text color="error">Connection error: {snap.error}</Text>}
+        {snap.error && <Text dimColor>Tap ↻ once to connect to To Do.</Text>}
 
         {urgent.length > 0 && head('Overdue / today', urgent.length)}
         {urgent.map(x => row(x.l.id, x.t, x.l.name))}
