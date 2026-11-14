@@ -1,5 +1,7 @@
 # todo-pane
 
+[![test](https://github.com/mehmetbulut-369/claude-todo-pane/actions/workflows/test.yml/badge.svg)](https://github.com/mehmetbulut-369/claude-todo-pane/actions/workflows/test.yml)
+
 Your Microsoft To Do tasks in a pane beside the Claude chat. You don't need another app or another window.
 
 ![todo-pane demo](assets/demo.gif)
@@ -84,6 +86,8 @@ Each choice below has a cost. I wrote it down so the trade-off is visible, not h
 claude plugin validate .
 claude plugin test .
 ```
+
+Both run on every push and pull request in [GitHub Actions](.github/workflows/test.yml), with the time zone set to Europe/Berlin so the local-day test has something to catch.
 
 To work on it locally, run `claude --plugin-dir .`. The plugin hot-reloads while you edit.
 

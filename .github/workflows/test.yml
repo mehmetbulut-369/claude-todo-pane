@@ -1,0 +1,25 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # The "today" test only catches the UTC bug in a zone ahead of UTC.
+      TZ: Europe/Berlin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Pinned to the stable release the plugin was tested with.
+      - run: npm install -g @anthropic-ai/claude-code@2.1.311
+      - run: claude plugin validate .
+      - run: claude plugin test .
