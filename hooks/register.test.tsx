@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { parseLists, parseTasks } from './parse'
+import { localDay, parseLists, parseTasks } from './parse'
 
 const PANE = {
   plugin: 'todo-pane', component: 'Pane', requestId: 'todo',
@@ -16,6 +16,12 @@ test('parser', async () => {
     { id: 'x', title: 'A task', due: '2026-11-05', isHigh: true },
     { id: 'z', title: 'Other', due: null, isHigh: false },
   ])
+})
+
+test('today is the local date, not the UTC date', async () => {
+  // 00:30 local time: in Germany (UTC+1) the UTC date is still the day before
+  expect(localDay(new Date(2026, 10, 14, 0, 30).getTime())).toBe('2026-11-14')
+  expect(localDay(new Date(2026, 10, 14, 23, 59).getTime())).toBe('2026-11-14')
 })
 
 test('pane shows overdue and completes a task', async ($, on) => {

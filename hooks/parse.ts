@@ -16,3 +16,9 @@ export function parseTasks(text: string): Task[] {
     return [{ id, title, due, isHigh: /Importance: high/.test(block) }]
   })
 }
+
+// Due dates are calendar days, so "today" must be the user's local day, not the UTC day.
+export function localDay(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}

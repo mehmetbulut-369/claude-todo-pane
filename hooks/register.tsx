@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Engine, Register } from 'claude-code'
 
 import type { Snapshot, TodoList } from '../types'
-import { parseLists, parseTasks } from './parse'
+import { localDay, parseLists, parseTasks } from './parse'
 
 const PANE = 'todo'
 const SERVER = 'microsoft-todo'
@@ -57,7 +57,7 @@ export const register: Register = on => {
     const snap = await read($, snapshot)
     const open = await read($, openList)
     const isBusy = await read($, busy)
-    const today = new Date(await $.clock.now()).toISOString().slice(0, 10)
+    const today = localDay(await $.clock.now())
 
     const complete = async (listId: string, taskId: string) => {
       const r = await $.mcp.call(SERVER, 'update-task', { listId, taskId, status: 'completed' })

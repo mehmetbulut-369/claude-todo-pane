@@ -60,6 +60,18 @@ No magic. Here is what happens behind the pane, in the same six steps as the ani
 - **Doesn't:** create, edit or delete tasks or lists. It makes no network requests of its own and stores no credentials.
 - **Stays local:** the plugin keeps the task list in the Claude Code session only to draw the pane. It does not send the list anywhere else.
 
+## Design decisions
+
+Each choice below has a cost. I wrote it down so the trade-off is visible, not hidden in the code.
+
+- **Read and complete only.** The pane does one job: show what is open and tick it off. Adding and editing stay in To Do, which already does them well. A smaller surface means fewer ways to damage someone's task list.
+- **Microsoft To Do is the only source of truth.** There is no local cache or database. Every view comes from a fresh call, and completing a task writes straight to To Do. The cost is a short wait on refresh; the gain is that the pane can never disagree with your phone.
+- **Reuse the MCP server instead of calling Microsoft Graph.** Writing my own Graph client would mean handling OAuth, tokens and refresh myself. The existing server already does that, so the plugin holds no credentials at all. The cost is that I depend on its output format (see below).
+- **Parse the server's text output.** The server returns formatted text, not JSON. [`hooks/parse.ts`](hooks/parse.ts) reads it with a few regular expressions, and tests pin the format. If the server changes it, tasks still show and only dates may drop. The code marks this as a shortcut to replace if the server ever offers JSON.
+- **Poll every 5 minutes, plus a manual ↻.** Microsoft Graph supports change notifications, but they need a public webhook endpoint, which a local plugin does not have. For a to-do list, five minutes is fresh enough.
+- **Fail soft.** Lists load in parallel. If one list returns an error, it shows as empty and the others still appear. If the whole refresh fails, the pane keeps the last good list and asks for one refresh instead of going blank. This usually happens when the pane opens before the MCP server has connected.
+- **"Today" is your local day.** Due dates are calendar days, so overdue and today are compared against your local date, not UTC. Otherwise, in Germany, the first hour after midnight would still count as yesterday. A test pins this.
+
 ## Limitations
 
 - Tested in the Claude desktop app (Code tab) on macOS. In the terminal, the pane docks beside the chat only in fullscreen at 110+ columns. Elsewhere it sits above the prompt.
