@@ -203,15 +203,21 @@ export const register: Register = on => {
     const high = all.filter(x => x.t.isHigh && !(x.t.due && x.t.due <= today))
     const lists = ordered(snap, await read($, order))
     const tone = (due: string | null): 'error' | 'suggestion' | 'inactive' => (due === null ? 'inactive' : due < today ? 'error' : due === today ? 'suggestion' : 'inactive')
-    const rows: Row[] = lists.flatMap(l => [
-      { kind: 'list' as const, id: l.id, name: l.name, n: l.tasks.length, open: open === l.id },
-      ...(open === l.id
-        ? l.tasks.map(t => ({
-            kind: 'task' as const, id: t.id, listId: l.id, title: t.title, isHigh: t.isHigh,
-            meta: t.due ? (t.due === today ? 'Today' : shortDate(t.due)) : '', tone: tone(t.due),
-          }))
-        : []),
-    ])
+    const task = (sec: string, l: TodoList, t: Task, withList: boolean): Row => ({
+      kind: 'task', key: sec + '-' + t.id, id: t.id, listId: l.id, title: t.title, isHigh: t.isHigh, tone: tone(t.due),
+      meta: [t.due && (t.due === today ? 'Today' : shortDate(t.due)), withList && l.name].filter(Boolean).join(' · '),
+    })
+    const section = (key: string, label: string, xs: { l: TodoList; t: Task }[]): Row[] =>
+      xs.length === 0 ? [] : [{ kind: 'section', key, label, n: xs.length }, ...xs.map(x => task(key, x.l, x.t, true))]
+    const rows: Row[] = [
+      ...section('urgent', 'Overdue / today', urgent),
+      ...section('high', 'Important', high),
+      { kind: 'section', key: 'lists', label: 'Lists', n: lists.length },
+      ...lists.flatMap(l => [
+        { kind: 'list' as const, key: 'l-' + l.id, id: l.id, name: l.name, n: l.tasks.length, open: open === l.id },
+        ...(open === l.id ? l.tasks.map(t => task('in', l, t, false)) : []),
+      ]),
+    ]
     const time = snap.at ? new Date(snap.at).toTimeString().slice(0, 5) : '—'
 
     return (
@@ -222,25 +228,27 @@ export const register: Register = on => {
         </Box>
         {snap.error && <Text dimColor>Tap ↻ once to connect to To Do.</Text>}
 
-        {urgent.length > 0 && head('Overdue / today', urgent.length)}
-        {urgent.map(x => row(x.l.id, x.t, x.l.name))}
-
-        {high.length > 0 && head('Important', high.length)}
-        {high.map(x => row(x.l.id, x.t, x.l.name))}
-
-        {head('Lists', snap.lists.length)}
         {'Client' in els ? (
-          // Drag rows to reorder, onto a list to move, and hold on a task to make it a step.
+          // One board for every section: drag rows to reorder, onto a list to move, hold on a task to make it a step.
           <els.Client key="board" module="./board.tsx" props={{ rows }} width="100%" />
         ) : (
-          lists.map(l => (
-            <Box key={'box-' + l.id} flexDirection="column">
-              <Button key={'list-' + l.id} plain onPress={() => update($, openList, cur => (cur === l.id ? null : l.id))}>
-                {open === l.id ? '▾ ' : '▸ '}{l.name} <Text dimColor>{String(l.tasks.length)}</Text>
-              </Button>
-              {open === l.id && <Box flexDirection="column" paddingLeft={2}>{l.tasks.map(t => row(l.id, t))}</Box>}
-            </Box>
-          ))
+          <>
+            {urgent.length > 0 && head('Overdue / today', urgent.length)}
+            {urgent.map(x => row(x.l.id, x.t, x.l.name))}
+
+            {high.length > 0 && head('Important', high.length)}
+            {high.map(x => row(x.l.id, x.t, x.l.name))}
+
+            {head('Lists', snap.lists.length)}
+            {lists.map(l => (
+              <Box key={'box-' + l.id} flexDirection="column">
+                <Button key={'list-' + l.id} plain onPress={() => update($, openList, cur => (cur === l.id ? null : l.id))}>
+                  {open === l.id ? '▾ ' : '▸ '}{l.name} <Text dimColor>{String(l.tasks.length)}</Text>
+                </Button>
+                {open === l.id && <Box flexDirection="column" paddingLeft={2}>{l.tasks.map(t => row(l.id, t))}</Box>}
+              </Box>
+            ))}
+          </>
         )}
       </Box>
     )

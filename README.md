@@ -19,9 +19,9 @@ It's a small thing, and it changed my day more than I expected. If you work the 
 - **Overdue / today** comes first, oldest first. Dates are red when late and amber when due today.
 - **Important** lists starred tasks.
 - **Lists** shows every list that has open tasks. Click one to expand it.
-- **Drag** to arrange things by hand:
-  - drag a list or a task up or down to reorder it;
-  - drag a task into another list to move it there;
+- **Drag** to arrange things by hand, in every section:
+  - drag a list or a task up or down to reorder it (inside Lists; Overdue and Important keep their own order);
+  - drag a task, from any section, into another list to move it there;
   - hold a task still on another task for a moment (it lights up with **+ step**) and let go: it becomes a step of that task.
   - Without a mouse: ↑↓ walk the rows, shift+↑↓ moves the row, return opens a list, space completes a task.
 - **○** completes a task in Microsoft To Do itself, so the change syncs to your phone too. Use To Do to add or edit tasks.

@@ -5,9 +5,11 @@ export type Snapshot = { lists: TodoList[]; at: number; error: string | null }
 export type Order = { lists: string[]; tasks: Record<string, string[]> }
 
 // What the board (a Client surface module) draws: one row per line, so a pointer row is a row index.
+// `key` is the row's own: a task can show twice (in Overdue and in its open list).
 export type Row =
-  | { kind: 'list'; id: string; name: string; n: number; open: boolean }
-  | { kind: 'task'; id: string; listId: string; title: string; meta: string; tone: 'error' | 'suggestion' | 'inactive'; isHigh: boolean }
+  | { kind: 'section'; key: string; label: string; n: number }
+  | { kind: 'list'; key: string; id: string; name: string; n: number; open: boolean }
+  | { kind: 'task'; key: string; id: string; listId: string; title: string; meta: string; tone: 'error' | 'suggestion' | 'inactive'; isHigh: boolean }
 export type BoardProps = { rows: Row[] }
 // What the board posts back to the hooks module.
 export type BoardMsg =

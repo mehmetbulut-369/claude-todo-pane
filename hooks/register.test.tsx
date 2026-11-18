@@ -56,10 +56,12 @@ test('pane shows overdue and completes a task', async ($, on) => {
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /Pay tax/ }))?.text).toContain('Pay tax')
-  await ui.press({ key: 'done-t1' })
+  // rows: Overdue / today, Pay tax, Lists, TR; the ○ sits at the row's start
+  expect((await ui.find({ type: 'Text', text: /Pay tax/, in: 'board' }))?.text).toContain('Pay tax')
+  await ui.pointer({ type: 'down', x: 2, y: 1, button: 'left', in: 'board' })
+  await ui.pointer({ type: 'up', x: 2, y: 1, button: 'left', in: 'board' })
   expect(calls).toContain('update-task')
-  expect(await ui.find({ type: 'Text', text: /Pay tax/ })).toBeFalsy()
+  expect(await ui.find({ type: 'Text', text: /Pay tax/, in: 'board' })).toBeFalsy()
   await ui.unmount()
 })
 
@@ -162,9 +164,9 @@ const open = async ($: any, on: any) => {
 
 test('dragging a list header reorders the lists and keeps the order', async ($, on) => {
   const { ui } = await open($, on)
-  expect(await rows(ui)).toEqual(['▸ TR', '▸ Home'])
-  await drag(ui, 1, 0)
-  expect(await rows(ui)).toEqual(['▸ Home', '▸ TR'])
+  expect(await rows(ui)).toEqual(['Lists', '▸ TR', '▸ Home'])
+  await drag(ui, 2, 1)
+  expect(await rows(ui)).toEqual(['Lists', '▸ Home', '▸ TR'])
   await ui.unmount()
 })
 
@@ -172,16 +174,16 @@ test('a saved order is used when the pane opens', async ($, on) => {
   const server = fakeServer(on, { order: { lists: ['L2', 'L1'], tasks: {} } })
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect(await rows(ui)).toEqual(['▸ Home', '▸ TR'])
+  expect(await rows(ui)).toEqual(['Lists', '▸ Home', '▸ TR'])
   expect(server.calls.length).toBeGreaterThan(0)
   await ui.unmount()
 })
 
 test('dragging a task onto another list moves it with its steps, then removes the original', async ($, on) => {
   const { server, ui } = await open($, on)
-  await click(ui, 0) // open TR: rows are TR, Pay tax, Home
-  expect(await rows(ui)).toEqual(['▾ TR', 'Pay tax', '▸ Home'])
-  await drag(ui, 1, 2)
+  await click(ui, 1) // open TR: rows are Lists, TR, Pay tax, Home
+  expect(await rows(ui)).toEqual(['Lists', '▾ TR', 'Pay tax', '▸ Home'])
+  await drag(ui, 2, 3)
   const tools = server.calls.map(c => c.tool).filter(t => !t.startsWith('get-task'))
   expect(tools).toEqual(['get-checklist-items', 'create-task', 'create-checklist-item', 'delete-task'])
   expect(server.calls.find(c => c.tool === 'create-task')?.args).toMatchObject({ listId: 'L2', title: 'Pay tax' })
@@ -193,8 +195,8 @@ test('a task whose note would be cut is not moved', async ($, on) => {
   const { server, ui } = await open($, on)
   server.l1 = '○ ID: t1\nTitle: Pay tax\nDescription: ' + 'x'.repeat(50) + '...\n---'
   await ui.press({ key: 'refresh' })
-  await click(ui, 0)
-  await drag(ui, 1, 2)
+  await click(ui, 1)
+  await drag(ui, 2, 3)
   expect(server.calls.some(c => c.tool === 'create-task' || c.tool === 'delete-task')).toBe(false)
   await ui.unmount()
 })
@@ -203,14 +205,14 @@ test('holding a task on another task makes it a step and completes it, deleting 
   const { server, ui } = await open($, on)
   server.l1 = '○ ID: t1\nTitle: Pay tax\n---\n○ ID: t3\nTitle: Tax return\n---'
   await ui.press({ key: 'refresh' })
-  await click(ui, 0)
-  expect(await rows(ui)).toEqual(['▾ TR', 'Pay tax', 'Tax return', '▸ Home'])
-  await drag(ui, 1, 2, 700)
+  await click(ui, 1)
+  expect(await rows(ui)).toEqual(['Lists', '▾ TR', 'Pay tax', 'Tax return', '▸ Home'])
+  await drag(ui, 2, 3, 700)
   expect(server.calls.find(c => c.tool === 'create-checklist-item')?.args).toEqual({ listId: 'L1', taskId: 't3', displayName: 'Pay tax' })
   expect(server.calls.find(c => c.tool === 'update-task')?.args).toMatchObject({ listId: 'L1', taskId: 't1', status: 'completed' })
   expect(server.calls.some(c => c.tool === 'delete-task')).toBe(false)
   expect(server.toasts).toEqual(['"Pay tax" is now a step of "Tax return".'])
-  expect(await rows(ui)).toEqual(['▾ TR', 'Tax return', '▸ Home'])
+  expect(await rows(ui)).toEqual(['Lists', '▾ TR', 'Tax return', '▸ Home'])
   await ui.unmount()
 })
 
@@ -218,20 +220,35 @@ test('a quick drag within a list only reorders it, in the pane', async ($, on) =
   const { server, ui } = await open($, on)
   server.l1 = '○ ID: t1\nTitle: Pay tax\n---\n○ ID: t3\nTitle: Tax return\n---'
   await ui.press({ key: 'refresh' })
-  await click(ui, 0)
-  await drag(ui, 1, 2)
-  expect(await rows(ui)).toEqual(['▾ TR', 'Tax return', 'Pay tax', '▸ Home'])
+  await click(ui, 1)
+  await drag(ui, 2, 3)
+  expect(await rows(ui)).toEqual(['Lists', '▾ TR', 'Tax return', 'Pay tax', '▸ Home'])
   expect(server.calls.some(c => !c.tool.startsWith('get-task'))).toBe(false)
   await ui.unmount()
 })
 
 test('without a mouse: arrows walk, shift+arrow moves, return opens', async ($, on) => {
   const { ui } = await open($, on)
-  await ui.key({ key: 'down', in: 'board' }) // cursor on TR
+  await ui.key({ key: 'down', in: 'board' }) // Lists
+  await ui.key({ key: 'down', in: 'board' }) // TR
   await ui.key({ key: 'down', shift: true, in: 'board' })
-  expect(await rows(ui)).toEqual(['▸ Home', '▸ TR'])
+  expect(await rows(ui)).toEqual(['Lists', '▸ Home', '▸ TR'])
   await ui.key({ key: 'down', in: 'board' })
   await ui.key({ key: 'return', in: 'board' })
-  expect(await rows(ui)).toEqual(['▸ Home', '▾ TR', 'Pay tax'])
+  expect(await rows(ui)).toEqual(['Lists', '▸ Home', '▾ TR', 'Pay tax'])
+  await ui.unmount()
+})
+
+test('an overdue task can be dragged straight onto another list', async ($, on) => {
+  const { server, ui } = await open($, on)
+  server.l1 = '○ ID: t1\nTitle: Pay tax\nDue: 11/1/2026\n---'
+  await ui.press({ key: 'refresh' })
+  expect(await rows(ui)).toEqual(['Overdue / today', 'Pay tax', 'Lists', '▸ TR', '▸ Home'])
+  // within Overdue there is nothing to reorder: letting go there does nothing
+  await drag(ui, 1, 0)
+  expect(server.calls.some(c => !c.tool.startsWith('get-task'))).toBe(false)
+  await drag(ui, 1, 4)
+  expect(server.calls.find(c => c.tool === 'create-task')?.args).toMatchObject({ listId: 'L2', title: 'Pay tax', dueDateTime: '2026-11-01T00:00:00' })
+  expect(server.calls.find(c => c.tool === 'delete-task')?.args).toEqual({ listId: 'L1', taskId: 't1' })
   await ui.unmount()
 })

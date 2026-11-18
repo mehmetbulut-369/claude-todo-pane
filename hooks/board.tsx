@@ -13,10 +13,12 @@ const DWELL = 4 // ticks a dragged task rests on another task before it drops *i
 const clamp = (rows: Row[], y: number, lo = 0) => Math.max(lo, Math.min(rows.length - 1, y))
 // A task always lands below some list header, so never at row 0.
 const taskY = (rows: Row[], y: number) => clamp(rows, y, 1)
+// The list a row belongs to; '' under a section (Overdue, Important), where a drop means nothing.
 const listAt = (rows: Row[], y: number) => {
   for (let i = y; i >= 0; i--) {
     const r = rows[i]
     if (r?.kind === 'list') return r.id
+    if (r?.kind === 'section') return ''
   }
   return ''
 }
@@ -30,12 +32,13 @@ const preview = (rows: Row[], from: number, y: number) => {
 // A dragged task held still on another task: let go now, it becomes that task's step.
 const intoOf = (rows: Row[], d: Drag) => {
   const t = rows[d.y]
-  return d.moved && d.still >= DWELL && d.y !== d.from && t?.kind === 'task' && rows[d.from]?.kind === 'task' ? t : null
+  const f = rows[d.from]
+  return d.moved && d.still >= DWELL && t?.kind === 'task' && f?.kind === 'task' && t.id !== f.id ? t : null
 }
 
 export function dropOf(rows: Row[], d: Drag): BoardMsg | null {
   const r = rows[d.from]
-  if (!r) return null
+  if (!r || r.kind === 'section') return null
   if (r.kind === 'list') {
     const ids = rows.filter(x => x.kind === 'list').map(x => x.id)
     const fi = ids.indexOf(r.id)
@@ -51,6 +54,7 @@ export function dropOf(rows: Row[], d: Drag): BoardMsg | null {
   if (y === d.from) return null
   const v = preview(rows, d.from, y)
   const list = listAt(v, y - 1)
+  if (!list) return null
   const after = v[y + 1]
   const before = after?.kind === 'task' ? after.id : null
   return list === r.listId
@@ -59,7 +63,7 @@ export function dropOf(rows: Row[], d: Drag): BoardMsg | null {
 }
 
 const clickOf = (r: Row | undefined, x: number): BoardMsg | null =>
-  !r ? null : r.kind === 'list' ? { op: 'toggle', listId: r.id } : x <= 3 ? { op: 'complete', listId: r.listId, id: r.id } : null
+  !r || r.kind === 'section' ? null : r.kind === 'list' ? { op: 'toggle', listId: r.id } : x <= 3 ? { op: 'complete', listId: r.listId, id: r.id } : null
 
 const Board: ClientModule<BoardProps, S> = (p, s) => {
   const { Box, Text } = s.elements
@@ -103,7 +107,7 @@ const Board: ClientModule<BoardProps, S> = (p, s) => {
       const r = rows[cur]
       if (k.key === 'up' || k.key === 'down') {
         const dy = k.key === 'up' ? -1 : 1
-        if (!k.shift || !r) return set({ cur: clamp(rows, cur + dy) })
+        if (!k.shift || !r || r.kind === 'section') return set({ cur: clamp(rows, cur + dy) })
         // A list jumps a whole list: aim at the neighbouring header, not at its own tasks.
         let y = cur + dy
         if (r.kind === 'list') while (rows[y] && rows[y]?.kind !== 'list') y += dy
@@ -121,23 +125,29 @@ const Board: ClientModule<BoardProps, S> = (p, s) => {
   const dragged = d?.moved ? p.rows[d.from] : null
   const into = d ? intoOf(p.rows, d) : null
   const target = dragged?.kind === 'list' ? listAt(p.rows, clamp(p.rows, d!.y)) : null
-  const view = dragged?.kind === 'task' && !into ? preview(p.rows, d!.from, taskY(p.rows, d!.y)) : p.rows
+  // Rows make room only where letting go would do something.
+  const view = dragged?.kind === 'task' && !into && dropOf(p.rows, d!) ? preview(p.rows, d!.from, taskY(p.rows, d!.y)) : p.rows
 
   return (
     <Box flexDirection="column" width="100%">
       {view.map((r, i) => {
         const lit = r === dragged || r === into || (r.kind === 'list' && r.id === target) || (!d && i === st.cur)
         return (
-          <Box key={'r-' + r.id} height={1} gap={1} backgroundColor={lit ? 'subtle' : undefined}>
-            {r.kind === 'list' ? (
+          <Box key={'r-' + r.key} height={1} gap={1} justifyContent={r.kind === 'section' ? 'space-between' : undefined} backgroundColor={lit ? 'subtle' : undefined}>
+            {r.kind === 'section' ? (
               <>
-                <Text key={'t-' + r.id} weight="semibold" wrap="truncate-end">{(r.open ? '▾ ' : '▸ ') + r.name}</Text>
+                <Text weight="semibold">{r.label}</Text>
+                <Text dimColor>{String(r.n)}</Text>
+              </>
+            ) : r.kind === 'list' ? (
+              <>
+                <Text key={'t-' + r.key} weight="semibold" wrap="truncate-end">{(r.open ? '▾ ' : '▸ ') + r.name}</Text>
                 <Text dimColor>{String(r.n)}</Text>
               </>
             ) : (
               <>
                 <Text dimColor>{'  ○'}</Text>
-                <Text key={'t-' + r.id} wrap="truncate-end">{r.title}</Text>
+                <Text key={'t-' + r.key} wrap="truncate-end">{r.title}</Text>
                 {r === into && <Text color="suggestion">+ step</Text>}
                 {r.meta && <Text color={r.tone} wrap="truncate-end">{r.meta}</Text>}
                 {r.isHigh && <Text color="suggestion">★</Text>}
