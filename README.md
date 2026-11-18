@@ -19,6 +19,11 @@ It's a small thing, and it changed my day more than I expected. If you work the 
 - **Overdue / today** comes first, oldest first. Dates are red when late and amber when due today.
 - **Important** lists starred tasks.
 - **Lists** shows every list that has open tasks. Click one to expand it.
+- **Drag** to arrange things by hand:
+  - drag a list or a task up or down to reorder it;
+  - drag a task into another list to move it there;
+  - hold a task still on another task for a moment (it lights up with **+ step**) and let go: it becomes a step of that task.
+  - Without a mouse: ↑↓ walk the rows, shift+↑↓ moves the row, return opens a list, space completes a task.
 - **○** completes a task in Microsoft To Do itself, so the change syncs to your phone too. Use To Do to add or edit tasks.
 - **↻** refreshes. The pane also refreshes on its own every 5 minutes.
 - **`/todo`** reopens the pane if you closed it.
@@ -49,7 +54,7 @@ Answer `y` to add the marketplace, then choose a scope (`user` makes it availabl
 
 No magic. Here is what happens behind the pane, in the same six steps as the animation:
 
-1. **You open Claude Code.** Claude Code loads the plugin and runs its hooks module, [`hooks/register.tsx`](hooks/register.tsx), which is about 130 lines. On `session.start`, the module opens a pane, registers the `/todo` command and starts a 5-minute timer.
+1. **You open Claude Code.** Claude Code loads the plugin and runs its hooks module, [`hooks/register.tsx`](hooks/register.tsx), which is about 250 lines, plus [`hooks/board.tsx`](hooks/board.tsx) for dragging. On `session.start`, the module opens a pane, registers the `/todo` command and starts a 5-minute timer.
 2. **The pane asks the MCP server on your Mac.** [MCP](https://modelcontextprotocol.io) (Model Context Protocol) is a standard way for Claude to talk to small helper programs. The plugin calls the `microsoft-todo` server through Claude Code's own connection (`$.mcp.call`). It first calls `get-task-lists`, then `get-tasks` for every list in parallel.
 3. **The server asks Microsoft with your own login.** The MCP server holds your Microsoft sign-in and calls Microsoft Graph, Microsoft's official API. The plugin never sees a password or a token.
 4. **Your lists come back as text.** The server answers in plain text (`Title: …`, `Due: …`). [`hooks/parse.ts`](hooks/parse.ts) turns that text into tasks, and the pane sorts them into *Overdue / today*, *Important* and *Lists*.
@@ -58,15 +63,19 @@ No magic. Here is what happens behind the pane, in the same six steps as the ani
 
 ### What the plugin can and cannot do
 
-- **Can:** read your To Do lists and open tasks, and mark a task as completed.
-- **Doesn't:** create, edit or delete tasks or lists. It makes no network requests of its own and stores no credentials.
-- **Stays local:** the plugin keeps the task list in the Claude Code session only to draw the pane. It does not send the list anywhere else.
+- **Can:** read your To Do lists and open tasks, mark a task as completed, move a task to another list and add a task as a step of another.
+- **Moving deletes, carefully:** To Do can't move a task between lists through its API, so a move copies the task (title, due date, importance, categories, note, steps) into the new list and only then deletes the original. If any part of the copy fails, the copy is removed and the original stays. A task whose note is too long to read whole is not moved; the pane asks you to move it in To Do.
+- **Doesn't:** edit task text or delete tasks any other way, or create or delete lists. It makes no network requests of its own and stores no credentials.
+- **Stays local:** the plugin keeps the task list in the Claude Code session only to draw the pane, and saves your drag order in Claude Code's plugin storage. It does not send either anywhere else.
 
 ## Design decisions
 
 Each choice below has a cost. I wrote it down so the trade-off is visible, not hidden in the code.
 
-- **Read and complete only.** The pane does one job: show what is open and tick it off. Adding and editing stay in To Do, which already does them well. A smaller surface means fewer ways to damage someone's task list.
+- **Show, tick off, rearrange.** The pane shows what is open, ticks it off and lets you put things where you want them by hand. Adding and editing stay in To Do, which already does them well. A smaller surface means fewer ways to damage someone's task list.
+- **Dragging is for the hand, not the menu.** Picking a task up and dropping it somewhere is the most direct way to say "this goes there". The rows follow the pointer while you drag, so you see where it will land before you let go. Holding still on a task, rather than a modifier key, is what turns a move into "put it inside", because that is what a hand does.
+- **Order lives in the pane.** Microsoft Graph has no field for task or list order, so the order you drag into is kept by the pane (across sessions) and does not reach To Do on your phone. New tasks from To Do show at the top.
+- **A step is completed, not deleted.** When a task becomes a step of another, the original is marked completed. You can still find it, with its note, under Completed in To Do.
 - **Microsoft To Do is the only source of truth.** There is no local cache or database. Every view comes from a fresh call, and completing a task writes straight to To Do. The cost is a short wait on refresh; the gain is that the pane can never disagree with your phone.
 - **Reuse the MCP server instead of calling Microsoft Graph.** Writing my own Graph client would mean handling OAuth, tokens and refresh myself. The existing server already does that, so the plugin holds no credentials at all. The cost is that I depend on its output format (see below).
 - **Parse the server's text output.** The server returns formatted text, not JSON. [`hooks/parse.ts`](hooks/parse.ts) reads it with a few regular expressions, and tests pin the format. If the server changes it, tasks still show and only dates may drop. The code marks this as a shortcut to replace if the server ever offers JSON.
@@ -79,6 +88,9 @@ Each choice below has a cost. I wrote it down so the trade-off is visible, not h
 - Tested in the Claude desktop app (Code tab) on macOS. In the terminal, the pane docks beside the chat only in fullscreen at 110+ columns. Elsewhere it sits above the prompt.
 - Due dates are read from the server's text output, which uses US date format (`11/20/2026`). If the server ever changes that format, dates won't show up, but tasks still will.
 - At most 100 open tasks per list.
+- Dragging needs a surface that lets the pane follow the pointer: the desktop app and the terminal. Elsewhere (VS Code, mobile) the lists show as plain buttons.
+- Only lists with open tasks show, so a list with no open tasks can't be a drop target.
+- A move drops the task's reminder and its file attachments; the server doesn't expose them.
 
 ## Development
 
