@@ -19,7 +19,8 @@ It's a small thing, and it changed my day more than I expected. If you work the 
 - **Overdue / today** comes first, oldest first. Dates are red when late and amber when due today.
 - **Important** lists starred tasks.
 - **Lists** shows every list that has open tasks. Click one to expand it.
-- **○** completes a task in Microsoft To Do itself, so the change syncs to your phone too. Use To Do to add or edit tasks.
+- **○** completes a task in Microsoft To Do itself, so the change syncs to your phone too.
+- **+ Add a task** at the bottom adds a task by title: type it and press Enter. It goes into the list you have open, or into your default To Do list if none is open. Use To Do to edit tasks or set dates.
 - **↻** refreshes. The pane also refreshes on its own every 5 minutes.
 - **`/todo`** reopens the pane if you closed it.
 
@@ -49,7 +50,7 @@ Answer `y` to add the marketplace, then choose a scope (`user` makes it availabl
 
 No magic. Here is what happens behind the pane, in the same six steps as the animation:
 
-1. **You open Claude Code.** Claude Code loads the plugin and runs its hooks module, [`hooks/register.tsx`](hooks/register.tsx), which is about 130 lines. On `session.start`, the module opens a pane, registers the `/todo` command and starts a 5-minute timer.
+1. **You open Claude Code.** Claude Code loads the plugin and runs its hooks module, [`hooks/register.tsx`](hooks/register.tsx), which is about 160 lines. On `session.start`, the module opens a pane, registers the `/todo` command and starts a 5-minute timer.
 2. **The pane asks the MCP server on your Mac.** [MCP](https://modelcontextprotocol.io) (Model Context Protocol) is a standard way for Claude to talk to small helper programs. The plugin calls the `microsoft-todo` server through Claude Code's own connection (`$.mcp.call`). It first calls `get-task-lists`, then `get-tasks` for every list in parallel.
 3. **The server asks Microsoft with your own login.** The MCP server holds your Microsoft sign-in and calls Microsoft Graph, Microsoft's official API. The plugin never sees a password or a token.
 4. **Your lists come back as text.** The server answers in plain text (`Title: …`, `Due: …`). [`hooks/parse.ts`](hooks/parse.ts) turns that text into tasks, and the pane sorts them into *Overdue / today*, *Important* and *Lists*.
@@ -58,15 +59,15 @@ No magic. Here is what happens behind the pane, in the same six steps as the ani
 
 ### What the plugin can and cannot do
 
-- **Can:** read your To Do lists and open tasks, and mark a task as completed.
-- **Doesn't:** create, edit or delete tasks or lists. It makes no network requests of its own and stores no credentials.
+- **Can:** read your To Do lists and open tasks, mark a task as completed, and add a new task by title.
+- **Doesn't:** edit or delete tasks, or create, edit or delete lists. It makes no network requests of its own and stores no credentials.
 - **Stays local:** the plugin keeps the task list in the Claude Code session only to draw the pane. It does not send the list anywhere else.
 
 ## Design decisions
 
 Each choice below has a cost. I wrote it down so the trade-off is visible, not hidden in the code.
 
-- **Read and complete only.** The pane does one job: show what is open and tick it off. Adding and editing stay in To Do, which already does them well. A smaller surface means fewer ways to damage someone's task list.
+- **Read, add and complete only.** The pane shows what is open, lets you jot down a new task without switching windows, and ticks tasks off. Editing, dates and deleting stay in To Do, which already does them well. Adding only ever creates a task, so it cannot damage an existing one.
 - **Microsoft To Do is the only source of truth.** There is no local cache or database. Every view comes from a fresh call, and completing a task writes straight to To Do. The cost is a short wait on refresh; the gain is that the pane can never disagree with your phone.
 - **Reuse the MCP server instead of calling Microsoft Graph.** Writing my own Graph client would mean handling OAuth, tokens and refresh myself. The existing server already does that, so the plugin holds no credentials at all. The cost is that I depend on its output format (see below).
 - **Parse the server's text output.** The server returns formatted text, not JSON. [`hooks/parse.ts`](hooks/parse.ts) reads it with a few regular expressions, and tests pin the format. If the server changes it, tasks still show and only dates may drop. The code marks this as a shortcut to replace if the server ever offers JSON.

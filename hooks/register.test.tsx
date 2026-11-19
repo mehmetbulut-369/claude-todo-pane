@@ -112,3 +112,42 @@ test('one failing list does not hide the others', async ($, on) => {
   expect(await ui.find({ type: 'Button', key: 'list-L1' })).toBeFalsy()
   await ui.unmount()
 })
+
+const addSetup = (on: any, created: any[], reply: string) => {
+  on('command.register', () => ({ value: { command: 'todo' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('clock.now', () => ({ value: Date.parse('2026-11-13T10:00:00Z') }))
+  on('clock.every', () => ({ value: undefined }))
+  on('mcp.call', (_: any, e: any) => {
+    if (e.tool === 'get-task-lists') return text('ID: L1\nName: Work\n---\nID: D1\nName: Tasks (Default Tasks List)\n---')
+    if (e.tool === 'create-task') { created.push(e.args ?? e.input ?? e.arguments); return text(reply) }
+    if (e.tool === 'get-tasks') return text(created.length ? '○ ID: n1\nTitle: Buy milk\nImportance: normal\n---' : 'No tasks found')
+    return text('ok')
+  })
+  on('session.start', (_: any, e: any) => ({ cwd: e.cwd }))
+}
+
+test('typing a title and Enter adds it to the default list', async ($, on) => {
+  const created: any[] = []
+  addSetup(on, created, 'Task created successfully!\nID: n1\nTitle: Buy milk')
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.input({ key: 'new-task', text: '  Buy milk ' })
+  expect(created).toHaveLength(1)
+  expect(JSON.stringify(created[0])).toContain('"listId":"D1"')
+  expect(JSON.stringify(created[0])).toContain('"title":"Buy milk"')
+  expect((await ui.find({ type: 'Text', text: /open ·/ }))?.text).toMatch(/^[1-9]/)
+  await ui.unmount()
+})
+
+test('a blank title adds nothing, and a failed add tells you', async ($, on) => {
+  const created: any[] = []
+  addSetup(on, created, 'Failed to create task in list: D1')
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.input({ key: 'new-task', text: '   ' })
+  expect(created).toHaveLength(0)
+  await ui.input({ key: 'new-task', text: 'Buy milk' })
+  expect(created).toHaveLength(1)
+  await ui.unmount()
+})
