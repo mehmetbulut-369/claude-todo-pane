@@ -104,7 +104,7 @@ const shows = async (ui: any, re: RegExp) =>
   Boolean((await ui.find({ type: 'Text', text: re })) ?? (await ui.find({ type: 'Text', text: re, in: 'board' })))
 // The board's rows, top to bottom, as their main text.
 const rows = async (ui: any) =>
-  (await ui.findAll({ type: 'Text', in: 'board' })).map((t: any) => t.text).filter((t: string) => /^[▸▾] |^[A-Z]/.test(t))
+  (await ui.findAll({ type: 'Text', in: 'board' })).map((t: any) => t.text.replace(/^  ○ /, '')).filter((t: string) => /^[▸▾] |^[A-Z]/.test(t))
 const drag = async (ui: any, from: number, to: number, holdMs = 0) => {
   await ui.pointer({ type: 'down', x: 8, y: from, button: 'left', in: 'board' })
   await ui.pointer({ type: 'move', x: 8, y: to, in: 'board' })
@@ -250,5 +250,17 @@ test('an overdue task can be dragged straight onto another list', async ($, on) 
   await drag(ui, 1, 4)
   expect(server.calls.find(c => c.tool === 'create-task')?.args).toMatchObject({ listId: 'L2', title: 'Pay tax', dueDateTime: '2026-11-01T00:00:00' })
   expect(server.calls.find(c => c.tool === 'delete-task')?.args).toEqual({ listId: 'L1', taskId: 't1' })
+  await ui.unmount()
+})
+
+test('a long title is cut to one line, so every row stays one row', async ($, on) => {
+  const { server, ui } = await open($, on)
+  server.l1 = '○ ID: t1\nTitle: ' + 'A very long task title '.repeat(6) + '\nDue: 11/1/2026\n---'
+  await ui.press({ key: 'refresh' })
+  await ui.resize({ columns: 30, rows: 10, in: 'board' })
+  const texts = (await ui.findAll({ type: 'Text', in: 'board' })).map((t: any) => t.text as string)
+  const title = texts.find(t => t.startsWith('  ○ '))!
+  expect(title.endsWith('…')).toBe(true)
+  expect(Array.from(title).length).toBeLessThan(30)
   await ui.unmount()
 })

@@ -128,31 +128,50 @@ const Board: ClientModule<BoardProps, S> = (p, s) => {
   // Rows make room only where letting go would do something.
   const view = dragged?.kind === 'task' && !into && dropOf(p.rows, d!) ? preview(p.rows, d!.from, taskY(p.rows, d!.y)) : p.rows
 
+  // Every row is exactly one line, cut here by count: surfaces differ in how they wrap or cut a Text,
+  // and a row that grows a second line would put the pointer on the wrong row.
+  const cols = s.columns > 0 ? s.columns : 40
+  const fit = (text: string, room: number) => {
+    const ch = Array.from(text)
+    return ch.length <= room ? text : ch.slice(0, Math.max(1, room - 1)).join('') + '…'
+  }
+  const STEP = '+ step'
+
   return (
     <Box flexDirection="column" width="100%">
       {view.map((r, i) => {
         const lit = r === dragged || r === into || (r.kind === 'list' && r.id === target) || (!d && i === st.cur)
+        let parts
+        if (r.kind === 'section' || r.kind === 'list') {
+          const n = String(r.n)
+          const label = r.kind === 'section' ? r.label : (r.open ? '▾ ' : '▸ ') + r.name
+          parts = [
+            <Text key={'t-' + r.key} weight="semibold">{fit(label, cols - n.length - 1)}</Text>,
+            <Text key={'n-' + r.key} dimColor>{n}</Text>,
+          ]
+        } else {
+          const extra = (r === into ? STEP.length + 1 : 0) + (r.meta ? r.meta.length + 1 : 0) + (r.isHigh ? 2 : 0)
+          // The meta (date · list) gives way first when the line is narrow, then the title.
+          const meta = extra > cols / 2 ? fit(r.meta, Math.max(0, Math.floor(cols / 2) - 1)) : r.meta
+          const used = (r === into ? STEP.length + 1 : 0) + (meta ? meta.length + 1 : 0) + (r.isHigh ? 2 : 0)
+          parts = [
+            <Text key={'t-' + r.key}>{'  ○ ' + fit(r.title, cols - 4 - used)}</Text>,
+            r === into ? <Text key="step" color="suggestion">{STEP}</Text> : null,
+            meta ? <Text key={'m-' + r.key} color={r.tone}>{meta}</Text> : null,
+            r.isHigh ? <Text key={'s-' + r.key} color="suggestion">★</Text> : null,
+          ]
+        }
         return (
-          <Box key={'r-' + r.key} height={1} gap={1} justifyContent={r.kind === 'section' ? 'space-between' : undefined} backgroundColor={lit ? 'subtle' : undefined}>
-            {r.kind === 'section' ? (
-              <>
-                <Text weight="semibold">{r.label}</Text>
-                <Text dimColor>{String(r.n)}</Text>
-              </>
-            ) : r.kind === 'list' ? (
-              <>
-                <Text key={'t-' + r.key} weight="semibold" wrap="truncate-end">{(r.open ? '▾ ' : '▸ ') + r.name}</Text>
-                <Text dimColor>{String(r.n)}</Text>
-              </>
-            ) : (
-              <>
-                <Text dimColor>{'  ○'}</Text>
-                <Text key={'t-' + r.key} wrap="truncate-end">{r.title}</Text>
-                {r === into && <Text color="suggestion">+ step</Text>}
-                {r.meta && <Text color={r.tone} wrap="truncate-end">{r.meta}</Text>}
-                {r.isHigh && <Text color="suggestion">★</Text>}
-              </>
-            )}
+          <Box
+            key={'r-' + r.key}
+            flexDirection="row"
+            height={1}
+            overflow="hidden"
+            gap={1}
+            justifyContent={r.kind === 'task' ? 'flex-start' : 'space-between'}
+            backgroundColor={lit ? 'subtle' : undefined}
+          >
+            {parts}
           </Box>
         )
       })}
