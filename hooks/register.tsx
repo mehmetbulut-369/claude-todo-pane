@@ -9,6 +9,7 @@ const SERVER = 'microsoft-todo'
 const snapshot = atom({ plugin: 'todo-pane', key: 'snapshot' } as const, null, { shape: 'snap-1' })
 const openList = atom({ plugin: 'todo-pane', key: 'openList' } as const, null)
 const busy = atom({ plugin: 'todo-pane', key: 'busy' } as const, false)
+const draft = atom({ plugin: 'todo-pane', key: 'draft' } as const, '')
 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const shortDate = (iso: string) => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`
@@ -56,10 +57,11 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button, Input } = $.ui.resolve(e)
     const snap = await read($, snapshot)
     const open = await read($, openList)
     const isBusy = await read($, busy)
+    const text = await read($, draft)
     const today = localDay(await $.clock.now())
 
     const complete = async (listId: string, taskId: string) => {
@@ -69,6 +71,26 @@ export const register: Register = on => {
         ...s,
         lists: s.lists.map(l => (l.id === listId ? { ...l, tasks: l.tasks.filter(t => t.id !== taskId) } : l)),
       })
+    }
+
+    // Into the open list, else To Do's default list.
+    const create = async (raw: string) => {
+      const title = raw.trim()
+      if (!title) return
+      await update($, draft, () => '')
+      let listId = open
+      if (!listId) {
+        const lists = textOf(await $.mcp.call(SERVER, 'get-task-lists'))
+        listId = /ID: (\S+)\nName: .+ \(Default Tasks List\)/.exec(lists)?.[1] ?? parseLists(lists)[0]?.id ?? null
+      }
+      if (!listId) return $.ui.toast('Could not add the task: no list found.')
+      const r = textOf(await $.mcp.call(SERVER, 'create-task', { listId, title }))
+      // The server reports failures as ordinary text, not as isError.
+      if (!r.includes('Task created successfully')) {
+        await update($, draft, () => title)
+        return $.ui.toast('Could not add the task: ' + r.slice(0, 80))
+      }
+      await refresh($)
     }
 
     const row = (listId: string, t: { id: string; title: string; due: string | null; isHigh: boolean }, listName?: string) => {
@@ -122,6 +144,17 @@ export const register: Register = on => {
             {open === l.id && <Box flexDirection="column" paddingLeft={2}>{l.tasks.map(t => row(l.id, t))}</Box>}
           </Box>
         ))}
+
+        <Box marginTop={1}>
+          <Input
+            key="new-task"
+            placeholder={'+ Add a task' + (open ? ' to ' + (snap.lists.find(l => l.id === open)?.name ?? '') : '')}
+            submitLabel="add"
+            value={text}
+            onInput={v => void update($, draft, () => v)}
+            onSubmit={v => void create(v)}
+          />
+        </Box>
       </Box>
     )
   })
